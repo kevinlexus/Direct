@@ -1,0 +1,2 @@
+prunsrv.exe //IS//Dwapp --DisplayName="Dwapp" --Description="Core of billing system" --Startup=auto --Install=C:\webapp\prunsrv.exe --Jvm=auto --Classpath=C:\webapp\dwapp-0.0.2.jar --StartMode=Java --StartClass=com.direct.webflow.Bootstrap --StartMethod=start --StartPath=C:\webapp\ --StartParams=start --StopMode=Java --StopClass=com.direct.webflow.Bootstrap --StopMethod=stop --StopParams=stop --StdOutput=auto --StdError=auto --LogPath=C:\webapp\ --LogLevel=Debug ++JvmOptions=-Duser.language=en ++JvmOptions=-Duser.region=us
+pause
