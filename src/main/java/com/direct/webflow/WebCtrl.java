@@ -17,6 +17,9 @@ import com.dic.bill.dao.impl.SprGenItmDaoImpl;
 import com.dic.bill.model.scott.PrepErr;
 import com.dic.bill.model.scott.SprGenItm;
 import com.dic.bill.utils.DSess;
+import com.direct.srv.ComprTbl;
+import com.direct.srv.MntBase;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -24,12 +27,12 @@ import lombok.extern.slf4j.Slf4j;
 @Controller
 public class WebCtrl {
 
-	@Autowired
-	private AnaborDAO anaborDao;
-	
 	ThrMain T1;
 	static String stateGen;//Состояние формирования 0-Выполнено успешно, 1-Формируется, 2-выход, с ошибкой
 	static int progressGen=0;//Прогресс формирования от 0 и до кол-во итераций
+	
+	@Autowired
+	private MntBase mntBase;	
 	
    static void incProgress(){
 	   progressGen++;
@@ -37,16 +40,22 @@ public class WebCtrl {
    
 
    /*
-    * Сканировать Anabor
+    * Сжать Anabor
     */
    @RequestMapping(value = "/scanAnabor", method = RequestMethod.GET, produces="application/json")
    @ResponseBody
    public String scanAnabor() {
-	
-	   anaborDao.getAll().stream().forEach(t->{
-		   log.info("Строка из Anabor id={}, lsk={}", t.getId(), t.getLsk());
-	   });
-	   return "Ok";
+	   
+	   try {
+			if (mntBase.comprAllTables()) {
+				   return "OK";
+			   } else {
+				   return "ERROR";
+			   }
+		} catch (Exception e) {
+			   return "ERROR";
+		}
+	   
     }   
    
    @RequestMapping(value = "/getSprgenitm", method = RequestMethod.GET, produces="application/json")
