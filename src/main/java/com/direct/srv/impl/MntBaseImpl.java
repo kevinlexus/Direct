@@ -45,31 +45,51 @@ public class MntBaseImpl implements MntBase{
 	/**
 	 * Сжать таблицу 
 	 * @throws Exception 
+	 * @param - tableClass - класс таблицы
+	 * @param - isByUsl - использовать ли поле "usl" для критерия сжатия (не подходит для всех таблиц, например archkart)
 	 */
-	private void comprTable(Class tableClass) throws Exception {
+	private void comprTable(Class tableClass, Boolean isByUsl) throws Exception {
+		log.info("Compress table:{}", tableClass);
 		long startTime;
 		long endTime;
 		long totalTime;
+		// Кол-во потоков
+		int cntThread = 5;
+		int a=0;
 		startTime = System.currentTimeMillis();
 
-		// Порезать список лс на пачки по N штук
+		// Порезать список лс на пачки по N штук		
 		List<String> lstLsk = kartDao.getAll().stream().map(t -> t.getLsk()).collect(Collectors.toList());
-		List<List<String>> batch = Lists.partition(lstLsk, 10);
+		List<List<String>> batch = Lists.partition(lstLsk, cntThread);
 		
-		//batch.stream().forEach(t-> {
+		
+		a=0;
 		for (List<String> t : batch) {
+			if (a >= 1000) {
+				a = 0;
+			}
+			if (a == 0) {
+				log.info("Started new 1000 Lsk :{}", t.stream().findFirst().orElse(null));
+			}
+			
+			a = a + cntThread;
+			long startTime2;
+			long endTime2;
+			long totalTime2;
+			startTime2 = System.currentTimeMillis();
+
 			List<Future<Result>> frl = new ArrayList<Future<Result>>();
 			t.stream().forEach(lsk-> {
 				ComprTbl comprTbl = ctx.getBean(ComprTbl.class);
-				log.info("Started thread lsk={}", lsk);
-				Future<Result> fut = comprTbl.comprTableByLsk(tableClass, lsk, curPeriod);
+				//log.info("Started thread lsk={}", lsk);
+				Future<Result> fut = comprTbl.comprTableByLsk(tableClass, lsk, curPeriod, isByUsl);
 				frl.add(fut);
 			});
 			
 			// проверить окончание всех потоков
 			int flag2 = 0;
 			while (flag2 == 0) {
-				log.info("========================================== Waiting for threads");
+				//log.info("========================================== Waiting for threads");
 				flag2 = 1;
 				for (Future<Result> fut : frl) {
 					if (!fut.isDone()) {
@@ -79,8 +99,8 @@ public class MntBaseImpl implements MntBase{
 								if (fut.get().getErr() != 0) {
 									throw new Exception("Ошибка в потоке err="+fut.get().getErr());
 								}
-								log.info("Done thread Lsk={}, Result.err={}",
-										fut.get().getLsk(), fut.get().getErr());
+								//log.info("Done thread Lsk={}, Result.err={}",
+								//		fut.get().getLsk(), fut.get().getErr());
 							} catch (InterruptedException | ExecutionException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -89,27 +109,32 @@ public class MntBaseImpl implements MntBase{
 				}
 
 				try {
-					Thread.sleep(10);
+					Thread.sleep(100);
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 
 			}
+			endTime2 = System.currentTimeMillis();
+			totalTime2 = endTime2 - startTime2;
+			log.info("Time per ONE LSK:{} msec", totalTime2/cntThread, 2);
+
 		};
 
 		endTime = System.currentTimeMillis();
 		totalTime = endTime - startTime;
-		log.info("table:{}, Time for compress:{}sec", tableClass, totalTime/1000, 2);
+		log.info("Overall time for compress:{} sec", totalTime/1000, 2);
 		
 	}
 	
 	public boolean comprAllTables() {
+		log.info("===Version 1.0===");
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);
 		curPeriod = Integer.valueOf(param.getPeriod());
 		try {
-			comprTable(Anabor.class);
+			comprTable(Anabor.class, true);
 		} catch (Exception e) {
 			// Ошибка при выполнении
 			e.printStackTrace();
