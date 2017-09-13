@@ -41,22 +41,29 @@ public class WebCtrl {
 
    /*
     * Сжать Anabor
+    * @param firstLsk - начать с лиц.сч.
     */
-   @RequestMapping(value = "/scanAnabor", method = RequestMethod.GET, produces="application/json")
-   @ResponseBody
-   public String scanAnabor() {
-	   
-	   try {
-			if (mntBase.comprAllTables()) {
-				   return "OK";
-			   } else {
-				   return "ERROR";
-			   }
-		} catch (Exception e) {
-			   return "ERROR";
+	@RequestMapping("/scanAnabor")
+	@ResponseBody
+	public String scanAnabor(
+			@RequestParam(value = "firstLsk", defaultValue = "00000000", required = false) String firstLsk,
+			@RequestParam(value = "allPeriods", defaultValue = "0", required = false) Integer allPeriods) {
+		log.info("GOT /chrglsk with: firstLsk={}, allPeriods={}", firstLsk, allPeriods);
+		boolean isAllPeriods = false;
+		if (allPeriods == 1) {
+			// анализировать все периоды
+			isAllPeriods = true;
 		}
-	   
-    }   
+		try {
+			if (mntBase.comprAllTables(firstLsk, isAllPeriods)) {
+				return "OK";
+			} else {
+				return "ERROR";
+			}
+		} catch (Exception e) {
+			return "ERROR";
+		}
+	}
    
    @RequestMapping(value = "/getSprgenitm", method = RequestMethod.GET, produces="application/json")
    @ResponseBody

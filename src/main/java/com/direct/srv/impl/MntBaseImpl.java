@@ -37,18 +37,21 @@ public class MntBaseImpl implements MntBase{
 	private ParamDAO paramDao;
 	@Autowired
 	private ApplicationContext ctx;
-	// Параметры
+	// параметры
 	private Param param;
-	// Текущий период
+	// текущий период
 	private Integer curPeriod;
+	// анализировать все периоды?
+	private boolean isAllPeriods;
 	
 	/**
 	 * Сжать таблицу 
 	 * @throws Exception 
 	 * @param - tableClass - класс таблицы
+	 * @param - firstLsk - начать с лицевого
 	 * @param - isByUsl - использовать ли поле "usl" для критерия сжатия (не подходит для всех таблиц, например archkart)
 	 */
-	private void comprTable(Class tableClass, Boolean isByUsl) throws Exception {
+	private void comprTable(Class tableClass, String firstLsk, Boolean isByUsl) throws Exception {
 		log.info("Compress table:{}", tableClass);
 		long startTime;
 		long endTime;
@@ -56,10 +59,11 @@ public class MntBaseImpl implements MntBase{
 		// Кол-во потоков
 		int cntThread = 5;
 		int a=0;
+		String lastLsk = null;
 		startTime = System.currentTimeMillis();
 
 		// Порезать список лс на пачки по N штук		
-		List<String> lstLsk = kartDao.getAll().stream().map(t -> t.getLsk()).collect(Collectors.toList());
+		List<String> lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk()).collect(Collectors.toList());
 		List<List<String>> batch = Lists.partition(lstLsk, cntThread);
 		
 		
@@ -79,12 +83,12 @@ public class MntBaseImpl implements MntBase{
 			startTime2 = System.currentTimeMillis();
 
 			List<Future<Result>> frl = new ArrayList<Future<Result>>();
-			t.stream().forEach(lsk-> {
+			for (String lsk : t) {
 				ComprTbl comprTbl = ctx.getBean(ComprTbl.class);
-				//log.info("Started thread lsk={}", lsk);
-				Future<Result> fut = comprTbl.comprTableByLsk(tableClass, lsk, curPeriod, isByUsl);
+				lastLsk = lsk;
+				Future<Result> fut = comprTbl.comprTableByLsk(tableClass, lsk, curPeriod, isAllPeriods, isByUsl);
 				frl.add(fut);
-			});
+			};
 			
 			// проверить окончание всех потоков
 			int flag2 = 0;
@@ -118,7 +122,7 @@ public class MntBaseImpl implements MntBase{
 			}
 			endTime2 = System.currentTimeMillis();
 			totalTime2 = endTime2 - startTime2;
-			log.info("Time per ONE LSK:{} msec", totalTime2/cntThread, 2);
+			log.info("Time per ONE LSK:{} msec, last Lsk={}", totalTime2/cntThread, lastLsk);
 
 		};
 
@@ -128,13 +132,19 @@ public class MntBaseImpl implements MntBase{
 		
 	}
 	
-	public boolean comprAllTables() {
-		log.info("===Version 1.0===");
+	/**
+	 * Сжать все необходимые таблицы
+	 * @param firstLsk - начать с лиц.сч.
+	 * @return
+	 */
+	public boolean comprAllTables(String firstLsk, boolean isAllPeriods) {
+		log.info("===Version 1.1===");
+		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);
 		curPeriod = Integer.valueOf(param.getPeriod());
 		try {
-			comprTable(Anabor.class, true);
+			comprTable(Anabor.class, firstLsk, true);
 		} catch (Exception e) {
 			// Ошибка при выполнении
 			e.printStackTrace();
