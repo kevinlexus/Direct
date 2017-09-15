@@ -1,7 +1,9 @@
 package com.direct.srv.impl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -52,7 +54,6 @@ public class MntBaseImpl implements MntBase{
 	 * @param - isByUsl - использовать ли поле "usl" для критерия сжатия (не подходит для всех таблиц, например archkart)
 	 */
 	private void comprTable(Class tableClass, String firstLsk, Boolean isByUsl) throws Exception {
-		log.info("Compress table:{}", tableClass);
 		long startTime;
 		long endTime;
 		long totalTime;
@@ -60,10 +61,16 @@ public class MntBaseImpl implements MntBase{
 		int cntThread = 5;
 		int a=0;
 		String lastLsk = null;
+		log.info("Compress table:{},  threads count:{}", tableClass, cntThread);
 		startTime = System.currentTimeMillis();
-
+		// Наибольшее время выполнения и лицевой
+		String expnsLsk = null;
+		Integer expnsTime = 0;
+		
 		// Порезать список лс на пачки по N штук		
-		List<String> lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk()).collect(Collectors.toList());
+		List<String> lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
+				//.filter(t -> t.equals("12010228"))
+				.collect(Collectors.toList());
 		List<List<String>> batch = Lists.partition(lstLsk, cntThread);
 		
 		
@@ -122,7 +129,12 @@ public class MntBaseImpl implements MntBase{
 			}
 			endTime2 = System.currentTimeMillis();
 			totalTime2 = endTime2 - startTime2;
-			log.info("Time per ONE LSK:{} msec, last Lsk={}", totalTime2/cntThread, lastLsk);
+			if (totalTime2/cntThread > expnsTime) {
+				expnsTime = (int) (totalTime2/cntThread); 
+				log.info("MOST EXPENSIVE BATCH {} msec, last Lsk={}", expnsTime, lastLsk);
+			} else {
+				log.info("Time/Lsk:{} msec, last Lsk={}", totalTime2/cntThread, lastLsk);
+			}
 
 		};
 
@@ -138,7 +150,7 @@ public class MntBaseImpl implements MntBase{
 	 * @return
 	 */
 	public boolean comprAllTables(String firstLsk, boolean isAllPeriods) {
-		log.info("===Version 1.1===");
+		log.info("===Version 1.3===");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);

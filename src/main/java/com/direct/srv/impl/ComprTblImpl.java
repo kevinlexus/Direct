@@ -57,6 +57,8 @@ public class ComprTblImpl implements ComprTbl {
 	// isByUsl - использовать ли поле "usl" для критерия сжатия
 	boolean isByUsl;
 	private Map<Integer, Integer> lstPeriodPrep;
+	// текущий л.с.
+	String lsk;
 	
 	/**
      * Сжать таблицу, содержащую mg1, mg2
@@ -70,11 +72,13 @@ public class ComprTblImpl implements ComprTbl {
 	@Async //- Async чтобы организовался поток
     @Transactional
 	public Future<Result> comprTableByLsk(Class tableClass, String lsk, Integer curPeriod, boolean isAllPeriods, boolean isByUsl) {
-		//log.info("НАЧАЛО сжатия лиц.счет:{}", lsk);
+		log.trace("Л.с.:{} Начало сжатия!", lsk);
+		this.lsk = lsk;
 		this.isByUsl = isByUsl;
     	Result res = new Result(0, lsk);
     	// Период -2 от текущего (минус два месяца, так как сжимаем только архивный и сравниваем его с доархивным)
     	Integer backPeriod = Integer.valueOf(Utl.addMonth(String.valueOf(curPeriod), -2));
+		log.trace("Л.с.:{} Период -1 от текущего:{}", lsk, backPeriod);
     	lst = new ArrayList<Compress>();
     	// Список услуг
     	Set<String> lstUsl = new TreeSet<String>();
@@ -85,19 +89,26 @@ public class ComprTblImpl implements ComprTbl {
     		if (isAllPeriods) {
     			// получить все периоды
             	lst.addAll(anaborDao.getByLsk(lsk));
+        		log.trace("Л.с.:{} По всем периодам элементы получены!", lsk, backPeriod);
     		} else {
     			// начиная с периода -2
             	lst.addAll(anaborDao.getByLskPeriod(lsk, backPeriod));
+        		log.trace("Л.с.:{} По по периоду начиная с -2 элементы получены!", lsk, backPeriod);
     		}
     	} else {
     		// Ошибка - не тот класс таблицы
+    		log.error("Л.с.:{} Ошибка! Не тот класс таблицы:{}", lsk, tableClass);
     		res.setErr(2);
     		return new AsyncResult<Result>(res);
     	}
     	
     	// Список всех услуг
     	lstUsl.addAll(lst.stream().map(t -> t.getUsl()).distinct().collect(Collectors.toSet()));
-
+		log.trace("Л.с.:{} список найденных услуг:", lsk);
+		lstUsl.stream().forEach(t-> {
+			log.trace("Л.с.:{} услуга:{}", lsk, t);
+		});
+		
     	if (isByUsl) {
     		// Сжимать с использованием кода услуги USL
     		for (String usl :lstUsl) {
@@ -107,6 +118,7 @@ public class ComprTblImpl implements ComprTbl {
     			minPeriod = lst.stream().filter(d -> d.getUsl().equals(usl)).map(t -> t.getMg1()).min(Integer::compareTo).orElse(null);
     			maxPeriod = lst.stream().filter(d -> d.getUsl().equals(usl) && d.getMg1() < curPeriod) // не включая текущий период
     					.map(t -> t.getMg2()).max(Integer::compareTo).orElse(null);
+    			log.trace("Л.с.:{} мин.период:{}, макс.период:{}", lsk, minPeriod, maxPeriod);
     			
     			// Получить все периоды mg1, уникальные - по услуге,
     	    	// отсортированные
@@ -150,7 +162,7 @@ public class ComprTblImpl implements ComprTbl {
 			
 		}*/
     	
-		//log.info("ОКОНЧАНИЕ сжатия лиц.счет:{}", lsk);
+		//log.trace("ОКОНЧАНИЕ сжатия лиц.счет:{}", lsk);
     	return new AsyncResult<Result>(res);
     }
 
@@ -175,6 +187,7 @@ public class ComprTblImpl implements ComprTbl {
      * @param usl - код услуги
      */
 	private void checkPeriod(Integer period, String usl) {
+		log.trace("Л.с.:{}, usl={} проверяемый.период:{}", this.lsk, usl, period);
 		Integer lastUsedMg2 = lstPeriodPrep.get(lastUsed);
 		// Период -1 от проверяемого
 		Integer chkPeriod = Integer.valueOf(Utl.addMonth(String.valueOf(period),-1));
@@ -182,11 +195,13 @@ public class ComprTblImpl implements ComprTbl {
     	if (lastUsed == null) {
     		// последнего массива нет 
     		lastUsed = period;
+    		log.trace("Л.с.:{}, usl={} последнего периода нет, сохранили:{}", this.lsk, usl, period);
     	} else if (lastUsed != null && !chkPeriod.equals(lastUsedMg2)) {
     		// последний массив есть, но проверяемый период имеет дату начала большую чем на 1 месяц чем в последнем массиве (GAP)
     		// проставить в заключительном периоде последнего массива, период -1
 			replacePeriod(lastUsed, Integer.valueOf(Utl.addMonth(String.valueOf(period), -1)), usl);
 			lastUsed = period;
+    		log.trace("Л.с.:{}, usl={} найден GAP:{}", this.lsk, usl, period);
     	} else {
     		// сравнить новый массив с последним
     		if (comparePeriod(period, lastUsed, usl)) {
@@ -194,11 +209,13 @@ public class ComprTblImpl implements ComprTbl {
     			delPeriod(period, usl);
     			// Расширить заключительный период последнего массива
     			lstPeriodPrep.put(lastUsed, period);
+        		log.trace("Л.с.:{}, usl={} элементы совпали:{}", this.lsk, usl, period);
     		} else {
     			// элементы разные, закрыть в последнем период действия
     			replacePeriod(lastUsed, Integer.valueOf(Utl.addMonth(String.valueOf(period), -1)), usl);
     			// пометить период нового массива как замыкающий
     			lastUsed = period;
+        		log.trace("Л.с.:{}, usl={} элементы разные:{}", this.lsk, usl, period);
     		}
     	}
     }
