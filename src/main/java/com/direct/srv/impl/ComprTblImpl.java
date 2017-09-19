@@ -56,6 +56,7 @@ public class ComprTblImpl implements ComprTbl {
 	private Integer lastUsed;
 	// isByUsl - использовать ли поле "usl" для критерия сжатия
 	boolean isByUsl;
+	// массив диапазонов периодов mg1, mg2
 	private Map<Integer, Integer> lstPeriodPrep;
 	// текущий л.с.
 	String lsk;
@@ -120,7 +121,7 @@ public class ComprTblImpl implements ComprTbl {
     					.map(t -> t.getMg2()).max(Integer::compareTo).orElse(null);
     			log.trace("Л.с.:{} мин.период:{}, макс.период:{}", lsk, minPeriod, maxPeriod);
     			
-    			// Получить все периоды mg1, уникальные - по услуге,
+    			// Получить все диапазоны периодов mg1, mg2 уникальные - по услуге,
     	    	// отсортированные
     			lstPeriodPrep = lst.stream().filter(d -> d.getUsl().equals(usl) && d.getMg1() < curPeriod)
     										.collect(Collectors.toMap(t->t.getMg1(), t->t.getMg2()));
@@ -131,8 +132,9 @@ public class ComprTblImpl implements ComprTbl {
     	    		checkPeriod(t, usl);
     				
     			});
-    	    	// Проверить, установить в последнем обработанном массиве корректность замыкающего периода mg2
-    	    	checkLastUsed(maxPeriod, usl);
+    			
+    			// Проверить, установить в последнем обработанном массиве корректность замыкающего периода mg2
+    			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), usl);
     		}
 			
 		}/* else {
@@ -167,21 +169,6 @@ public class ComprTblImpl implements ComprTbl {
     }
 
     /**
-     * Проверка, установка в последнем обработанном массиве корректность замыкающего периода mg2, если он уже не является сжатым (mg1 == mg2)
-     */
-    private void checkLastUsed(Integer period, String usl) {
-		lst.stream().filter(t -> usl == null || t.getUsl().equals(usl))
-				.filter(t -> t.getMg1().equals(lastUsed))
-				.filter(t -> t.getMg1().equals(t.getMg2()))
-				.filter(t -> !t.getMg2().equals(period) && isByUsl 
-				
-				).forEach(d -> {
-			// Проставить корректный замыкающий период
-			d.setMg2(period);
-		});
-	}
-
-    /**
      * Проверить массив
      * @param period - период массива 
      * @param usl - код услуги
@@ -193,13 +180,13 @@ public class ComprTblImpl implements ComprTbl {
 		Integer chkPeriod = Integer.valueOf(Utl.addMonth(String.valueOf(period),-1));
 				
     	if (lastUsed == null) {
-    		// последнего массива нет 
+    		// последнего массива нет, сохраняем как новый
     		lastUsed = period;
     		log.trace("Л.с.:{}, usl={} последнего периода нет, сохранили:{}", this.lsk, usl, period);
     	} else if (lastUsed != null && !chkPeriod.equals(lastUsedMg2)) {
-    		// последний массив есть, но проверяемый период имеет дату начала большую чем на 1 месяц чем в последнем массиве (GAP)
-    		// проставить в заключительном периоде последнего массива, период -1
-			replacePeriod(lastUsed, Integer.valueOf(Utl.addMonth(String.valueOf(period), -1)), usl);
+    		// последний массив есть, но проверяемый период имеет дату начала большую чем на 1 месяц относительно последнего массива (GAP)
+    		// проставить в заключительном периоде последнего массива замыкающий месяц 
+			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), usl);
 			lastUsed = period;
     		log.trace("Л.с.:{}, usl={} найден GAP:{}", this.lsk, usl, period);
     	} else {
@@ -207,14 +194,15 @@ public class ComprTblImpl implements ComprTbl {
     		if (comparePeriod(period, lastUsed, usl)) {
     			// элементы совпали, удалить элементы сравниваемого массива
     			delPeriod(period, usl);
-    			// Расширить заключительный период последнего массива
-    			lstPeriodPrep.put(lastUsed, period);
+    			// Расширить заключительный период последнего массива на mg2 сравниваемого массива
+    			lstPeriodPrep.put(lastUsed, lstPeriodPrep.get(period));
         		log.trace("Л.с.:{}, usl={} элементы совпали:{}", this.lsk, usl, period);
     		} else {
     			// элементы разные, закрыть в последнем период действия
-    			replacePeriod(lastUsed, Integer.valueOf(Utl.addMonth(String.valueOf(period), -1)), usl);
+    			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), usl);
     			// пометить период нового массива как замыкающий
     			lastUsed = period;
+    			// сохранять не надо mg2, так как уже записано это при инициализации массива
         		log.trace("Л.с.:{}, usl={} элементы разные:{}", this.lsk, usl, period);
     		}
     	}

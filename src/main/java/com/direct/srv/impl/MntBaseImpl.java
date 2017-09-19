@@ -150,7 +150,7 @@ public class MntBaseImpl implements MntBase{
 	 * @return
 	 */
 	public boolean comprAllTables(String firstLsk, boolean isAllPeriods) {
-		log.info("===Version 1.3===");
+		log.info("===Version 1.4===");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);
