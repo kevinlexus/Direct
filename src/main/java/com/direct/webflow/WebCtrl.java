@@ -43,19 +43,20 @@ public class WebCtrl {
     * Сжать Anabor
     * @param firstLsk - начать с лиц.сч.
     */
-	@RequestMapping("/scanAnabor")
+	@RequestMapping("/scan")
 	@ResponseBody
-	public String scanAnabor(
+	public String scan(
 			@RequestParam(value = "firstLsk", defaultValue = "00000000", required = false) String firstLsk,
+			@RequestParam(value = "table", required = false) String table,
 			@RequestParam(value = "allPeriods", defaultValue = "0", required = false) Integer allPeriods) {
-		log.info("GOT /chrglsk with: firstLsk={}, allPeriods={}", firstLsk, allPeriods);
+		log.info("GOT /chrglsk with: firstLsk={}, table={}, allPeriods={}", firstLsk, table, allPeriods);
 		boolean isAllPeriods = false;
 		if (allPeriods == 1) {
 			// анализировать все периоды
 			isAllPeriods = true;
 		}
 		try {
-			if (mntBase.comprAllTables(firstLsk, isAllPeriods)) {
+			if (mntBase.comprAllTables(firstLsk, table, isAllPeriods)) {
 				return "OK";
 			} else {
 				return "ERROR";

@@ -53,7 +53,7 @@ public class MntBaseImpl implements MntBase{
 	 * @param - firstLsk - начать с лицевого
 	 * @param - isByUsl - использовать ли поле "usl" для критерия сжатия (не подходит для всех таблиц, например archkart)
 	 */
-	private void comprTable(Class tableClass, String firstLsk, Boolean isByUsl) throws Exception {
+	private void comprTable(String table, String firstLsk, Boolean isByUsl) throws Exception {
 		long startTime;
 		long endTime;
 		long totalTime;
@@ -61,7 +61,7 @@ public class MntBaseImpl implements MntBase{
 		int cntThread = 5;
 		int a=0;
 		String lastLsk = null;
-		log.info("Compress table:{},  threads count:{}", tableClass, cntThread);
+		log.info("Compress table:{},  threads count:{}", table, cntThread);
 		startTime = System.currentTimeMillis();
 		// Наибольшее время выполнения и лицевой
 		String expnsLsk = null;
@@ -93,7 +93,7 @@ public class MntBaseImpl implements MntBase{
 			for (String lsk : t) {
 				ComprTbl comprTbl = ctx.getBean(ComprTbl.class);
 				lastLsk = lsk;
-				Future<Result> fut = comprTbl.comprTableByLsk(tableClass, lsk, curPeriod, isAllPeriods, isByUsl);
+				Future<Result> fut = comprTbl.comprTableByLsk(table, lsk, curPeriod, isAllPeriods, isByUsl);
 				frl.add(fut);
 			};
 			
@@ -149,14 +149,14 @@ public class MntBaseImpl implements MntBase{
 	 * @param firstLsk - начать с лиц.сч.
 	 * @return
 	 */
-	public boolean comprAllTables(String firstLsk, boolean isAllPeriods) {
+	public boolean comprAllTables(String firstLsk, String table, boolean isAllPeriods) {
 		log.info("===Version 1.4===");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);
 		curPeriod = Integer.valueOf(param.getPeriod());
 		try {
-			comprTable(Anabor.class, firstLsk, true);
+			comprTable(table, firstLsk, true);
 		} catch (Exception e) {
 			// Ошибка при выполнении
 			e.printStackTrace();

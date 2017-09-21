@@ -4,6 +4,6 @@ import com.direct.excp.WrongTableException;
 
 public interface MntBase {
 
-	public boolean comprAllTables(String firstLsk, boolean isAllPeriods);
+	public boolean comprAllTables(String table, String firstLsk, boolean isAllPeriods);
 
 }
