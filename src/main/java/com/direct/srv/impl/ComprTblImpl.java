@@ -34,7 +34,7 @@ import com.direct.webflow.Result;
 import com.ric.bill.Utl;
 
 import lombok.extern.slf4j.Slf4j;
-
+import org.apache.commons.collections4.Equator;
 
 /**
  * Сервис сжатия таблиц 
@@ -71,6 +71,7 @@ public class ComprTblImpl implements ComprTbl {
      * Сжать таблицу, содержащую mg1, mg2
 	 * @param lsk - лиц.счет
 	 * @param table - таблица для сжатия
+	 * @param backPeriod - текущий период -1 месяц
 	 * @param curPeriod - текущий период
 	 * @param isAllPeriods - использование начального периода: 
 	 *    (если false, то месяц -1 от текущего, если true - с первого минимального по услуге)
@@ -79,19 +80,16 @@ public class ComprTblImpl implements ComprTbl {
 	 */
 	@Async //- Async чтобы организовался поток
     @Transactional
-	public Future<Result> comprTableByLsk(String table, String lsk, Integer curPeriod, boolean isAllPeriods, boolean isByUsl) {
+	public Future<Result> comprTableByLsk(String table, String lsk, Integer backPeriod, Integer curPeriod, boolean isAllPeriods, boolean isByUsl) {
 		log.trace("Л.с.:{} Начало сжатия!", lsk);
 		this.lsk = lsk;
 		this.isByUsl = isByUsl;
     	Result res = new Result(0, lsk);
-    	// Период -2 от текущего (минус два месяца, так как сжимаем только архивный и сравниваем его с доархивным)
-    	Integer backPeriod = Integer.valueOf(Utl.addMonth(String.valueOf(curPeriod), -2));
-		log.trace("Л.с.:{} Период -1 от текущего:{}", lsk, backPeriod);
     	lst = new ArrayList<Compress>();
     	// Список ключей
     	Set<Integer> lstKey = new TreeSet<Integer>();
     	// Минимальный, максимальный период
-    	Integer minPeriod, maxPeriod;
+    	Integer minPeriod;//, maxPeriod;
  	   	// Получить все элементы по лиц.счету
     	if (table.equals("anabor")) {
     		if (isAllPeriods) {
@@ -103,7 +101,7 @@ public class ComprTblImpl implements ComprTbl {
             	lst.addAll(anaborDao.getByLskPeriod(lsk, backPeriod));
         		log.trace("Л.с.:{} По по периоду начиная с -2 элементы получены!", lsk, backPeriod);
     		}
-    	} if (table.equals("acharge")) {
+    	} else if (table.equals("acharge")) {
         		if (isAllPeriods) {
         			// получить все периоды
                 	lst.addAll(achargeDao.getByLsk(lsk));
@@ -128,15 +126,15 @@ public class ComprTblImpl implements ComprTbl {
 		});
 		
     	if (isByUsl) {
-    		// Сжимать с использованием услуги
+    		// Сжимать с использованием ключа
     		for (Integer key :lstKey) {
     			lastUsed = null;
     	    	// Получить все периоды, фильтр - по услуге
     	    	
     			minPeriod = lst.stream().filter(d -> d.getKey().equals(key)).map(t -> t.getMgFrom()).min(Integer::compareTo).orElse(null);
-    			maxPeriod = lst.stream().filter(d -> d.getKey().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
-    					.map(t -> t.getMgTo()).max(Integer::compareTo).orElse(null);
-    			log.trace("Л.с.:{} мин.период:{}, макс.период:{}", lsk, minPeriod, maxPeriod);
+    			//maxPeriod = lst.stream().filter(d -> d.getKey().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
+    				//	.map(t -> t.getMgTo()).max(Integer::compareTo).orElse(null);
+    			log.trace("Л.с.:{} мин.период:{}", lsk, minPeriod);
     			
     			// Получить все диапазоны периодов mgFrom, mgTo уникальные - по ключу,
     	    	// отсортированные
@@ -160,34 +158,9 @@ public class ComprTblImpl implements ComprTbl {
     			replacePeriod(lastUsed, lstPeriodPrep.get(lastUsed), key);
     		}
 			
-		}/* else {
-    		// Сжимать без использования кода услуги USL
-			lastUsed = null;
-	    	// Получить все периоды, отсортированные по mg1
-	    	Set<Integer> lstPeriodPrep = lst.stream().map(t -> t.getMg1()).collect(Collectors.toSet());
-	    	// Получить все периоды mg1, уникальные
-	    	lstPeriod = new TreeSet<Integer>();
-	    	lstPeriod.addAll(lstPeriodPrep.stream().distinct().collect(Collectors.toSet()));
-	    	minPeriod = lstPeriod.first();
-	    	maxPeriod = lstPeriod.last();
-	    	if (maxPeriod >= curPeriod) {
-	    		// не включая текущий период!!! Строго! Иначе будут некорректно добавляться периоды из программы Delphi!
-	    		maxPeriod = Integer.valueOf(Utl.addMonth(String.valueOf(curPeriod), -1));
-	    	}
-	    	
-	    	Integer period = minPeriod; 
-	    	while (period <= maxPeriod) {
-	    		comparePeriod(period, null);
-	    		// Период +1
-	    		period = Integer.valueOf(Utl.addMonth(String.valueOf(period), 1));
-	    	}
-	    	
-	    	// Проверить, установить в последнем обработанном массиве корректность замыкающего периода mg2
-	    	checkLastUsed(maxPeriod, null);
-			
-		}*/
-    	
-		//log.trace("ОКОНЧАНИЕ сжатия лиц.счет:{}", lsk);
+		}
+		log.trace("Л.с.:{} Окончание сжатия!", lsk);
+
     	return new AsyncResult<Result>(res);
     }
 
@@ -268,21 +241,44 @@ public class ComprTblImpl implements ComprTbl {
      * @param period1 - Период 2
      * @param key - код ключа
      * @return 
-     * @return 
      */
     private boolean comparePeriod(Integer period1, Integer period2, Integer key) {
-		// Получить коллекции hash и сравнить их между собой
-    	List<Integer> filtLst1 = lst.stream()
+    	List<Compress> filtLst1 = lst.stream()
+				.filter(t -> key == null || t.getKey().equals(key))
+				.filter(t -> t.getMgFrom().equals(period1)).collect(Collectors.toList());
+		List<Compress> filtLst2 = lst.stream()
+				.filter(t -> key == null || t.getKey().equals(key))
+				.filter(t -> t.getMgFrom().equals(period2)).collect(Collectors.toList());
+
+		if (filtLst1.size() != filtLst2.size()) {
+			// не равны по размеру
+			log.info("Не равны по размеру!");
+			return false;
+		}
+		// Сравнить своим компаратором
+		Eq equator = new Eq();
+		return CollectionUtils.isEqualCollection(filtLst1, filtLst2, equator);
+		
+		// Получить коллекции hash и сравнить их между собой оставил пока 
+/*    	List<Integer> filtLst1 = lst.stream()
 				.filter(t -> key == null || t.getKey().equals(key))
 				.filter(t -> t.getMgFrom().equals(period1)).map(t-> t.getHash()).collect(Collectors.toList());
 		List<Integer> filtLst2 = lst.stream()
 				.filter(t -> key == null || t.getKey().equals(key))
 				.filter(t -> t.getMgFrom().equals(period2)).map(t-> t.getHash()).collect(Collectors.toList());
-		if (filtLst1.size() != filtLst2.size()) {
-			// не равны по размеру
-			return false;
-		}
-		return CollectionUtils.isEqualCollection(filtLst1, filtLst2);
+*/		
 	}
 
+    public static class Eq implements Equator<Compress> {
+
+		public boolean equate(Compress o1, Compress o2) {
+			
+			return o1.isTheSame(o2);
+		}
+
+		public int hash(Compress o) {
+			return o.getHash();
+		}
+    	
+    }
 }

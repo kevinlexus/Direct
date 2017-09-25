@@ -2,12 +2,18 @@ package com.direct.srv.impl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IntSummaryStatistics;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.LongSummaryStatistics;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+import org.apache.commons.collections4.list.TreeList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
@@ -22,6 +28,7 @@ import com.direct.srv.ComprTbl;
 import com.direct.srv.MntBase;
 import com.direct.webflow.Result;
 import com.google.common.collect.Lists;
+import com.ric.bill.Utl;
 
 import lombok.extern.slf4j.Slf4j;
 /**
@@ -43,6 +50,8 @@ public class MntBaseImpl implements MntBase{
 	private Param param;
 	// текущий период
 	private Integer curPeriod;
+	// период -1 от текущего
+	private Integer backPeriod;
 	// анализировать все периоды?
 	private boolean isAllPeriods;
 	
@@ -54,91 +63,138 @@ public class MntBaseImpl implements MntBase{
 	 * @param - isByUsl - использовать ли поле "usl" для критерия сжатия (не подходит для всех таблиц, например archkart)
 	 */
 	private void comprTable(String table, String firstLsk, Boolean isByUsl) throws Exception {
-		long startTime;
-		long endTime;
-		long totalTime;
+		Integer startTime;
+		Integer endTime;
+		Integer totalTime;
 		// Кол-во потоков
-		int cntThread = 5;
-		int a=0;
+		int cntThread = 30;
+		// Кол-во потоков, лучшее
+		boolean setBestCntThread = false;
+		int bestCntThread = 0;
+		Integer cnt; 
 		String lastLsk = null;
-		log.info("Compress table:{},  threads count:{}", table, cntThread);
-		startTime = System.currentTimeMillis();
-		// Наибольшее время выполнения и лицевой
-		String expnsLsk = null;
-		Integer expnsTime = 0;
-		
-		// Порезать список лс на пачки по N штук		
-		List<String> lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
-				//.filter(t -> t.equals("12010228"))
-				.collect(Collectors.toList());
-		List<List<String>> batch = Lists.partition(lstLsk, cntThread);
-		
-		
-		a=0;
-		for (List<String> t : batch) {
-			if (a >= 1000) {
-				a = 0;
-			}
-			if (a == 0) {
-				log.info("Started new 1000 Lsk :{}", t.stream().findFirst().orElse(null));
-			}
-			
-			a = a + cntThread;
-			long startTime2;
-			long endTime2;
-			long totalTime2;
-			startTime2 = System.currentTimeMillis();
+		// каждую пачку исполнять по N раз
+		int batchCnt = 1;
+		// лучшее время исполнения, мс
+		Integer bestTime = 5000;
+		Integer batchTime = 0;
+		List<Integer> avgLst;
 
-			List<Future<Result>> frl = new ArrayList<Future<Result>>();
-			for (String lsk : t) {
-				ComprTbl comprTbl = ctx.getBean(ComprTbl.class);
-				lastLsk = lsk;
-				Future<Result> fut = comprTbl.comprTableByLsk(table, lsk, curPeriod, isAllPeriods, isByUsl);
-				frl.add(fut);
-			};
-			
-			// проверить окончание всех потоков
-			int flag2 = 0;
-			while (flag2 == 0) {
-				//log.info("========================================== Waiting for threads");
-				flag2 = 1;
-				for (Future<Result> fut : frl) {
-					if (!fut.isDone()) {
-						flag2 = 0;
+		log.info("Compress table:{},  threads count:{}", table, cntThread);
+		startTime = (int) System.currentTimeMillis();
+		
+		// Получить список лс
+		List<String> lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
+				.collect(Collectors.toList());
+		//List<List<String>> batch = Lists.partition(lstLsk, cntThread);
+		Queue<String> qu = new LinkedList<>(lstLsk);
+			cnt = 1;
+			avgLst = new TreeList<Integer>();
+			while (true) {
+				if (qu.size() ==0) {
+					// выйти, если нет лс для обработки
+					break;
+				}
+
+				// Получить очередную пачку лицевых
+				List<String> batch = new LinkedList<String>();
+				
+				if (setBestCntThread) {
+					cntThread = bestCntThread; 	
+				}
+				for (int b =1; b <= cntThread ; b++) {
+					String addLsk = qu.poll();
+					if (addLsk ==null) {
+						break;
 					} else {
-							try {
-								if (fut.get().getErr() != 0) {
-									throw new Exception("Ошибка в потоке err="+fut.get().getErr());
-								}
-								//log.info("Done thread Lsk={}, Result.err={}",
-								//		fut.get().getLsk(), fut.get().getErr());
-							} catch (InterruptedException | ExecutionException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
+						batch.add(addLsk);
 					}
 				}
-
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				
+				long startTime2;
+				long endTime2;
+				startTime2 = System.currentTimeMillis();
+				List<Future<Result>> frl = new ArrayList<Future<Result>>();
+		
+				// Начать потоки
+				for (String lsk :batch){
+					ComprTbl comprTbl = ctx.getBean(ComprTbl.class);
+					Future<Result> fut = comprTbl.comprTableByLsk(table, lsk, backPeriod, curPeriod, isAllPeriods, isByUsl);
+					frl.add(fut);
+					if (cnt == 1000) {
+						log.info("Последний лс на обработке={}", lsk);
+						cnt = 1;
+					} else {
+						cnt ++;
+					}
 				}
+	
+				// проверить окончание всех потоков
+				int flag2 = 0;
+				while (flag2 == 0) {
+					//log.info("========================================== Waiting for threads");
+					flag2 = 1;
+					for (Future<Result> fut : frl) {
+						if (!fut.isDone()) {
+							flag2 = 0;
+						} else {
+								try {
+									if (fut.get().getErr() != 0) {
+										throw new Exception("Ошибка в потоке err="+fut.get().getErr());
+									}
+									//log.info("Done thread Lsk={}, Result.err={}",
+									//		fut.get().getLsk(), fut.get().getErr());
+								} catch (InterruptedException | ExecutionException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+						}
+					}
+	
+					try {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+	
+				}
+				
+				endTime2 = System.currentTimeMillis();
+				batchTime = (int) ((endTime2 - startTime2) /cntThread);
+				log.info("Выполнение одного лс используя {} потоков заняло {} мс", cntThread, batchTime);
+				
+				// проверить время выполнения пачки
+				if (!setBestCntThread) {
+					avgLst.add(batchTime);
+					// пока не установлено лучшее кол-во потоков
+					if (batchCnt > 5) {
+						batchCnt = 1;
+						
+						IntSummaryStatistics stat = avgLst.stream().mapToInt((t) -> t)
+                                .summaryStatistics();
+						
+						if (stat.getAverage() < bestTime) {
+							bestCntThread = cntThread;
+							bestTime = (int) stat.getAverage();
+							log.info("Кол-во потоков={}, найдено лучшее время исполнения одного лс={}", bestCntThread, bestTime);
+						}
+						if (cntThread !=1) {
+							cntThread--;
+						} else {
+							cntThread = bestCntThread;
+							setBestCntThread = true;
+							log.info("Установлено лучшее кол-во потоков={}", bestCntThread);
+						}
+						avgLst = new TreeList<Integer>();
+					} else {
+						batchCnt++;
+					}
+				}
+	
+		}
 
-			}
-			endTime2 = System.currentTimeMillis();
-			totalTime2 = endTime2 - startTime2;
-			if (totalTime2/cntThread > expnsTime) {
-				expnsTime = (int) (totalTime2/cntThread); 
-				log.info("MOST EXPENSIVE BATCH {} msec, last Lsk={}", expnsTime, lastLsk);
-			} else {
-				log.info("Time/Lsk:{} msec, last Lsk={}", totalTime2/cntThread, lastLsk);
-			}
-
-		};
-
-		endTime = System.currentTimeMillis();
+		endTime = (int) System.currentTimeMillis();
 		totalTime = endTime - startTime;
 		log.info("Overall time for compress:{} sec", totalTime/1000, 2);
 		
@@ -150,11 +206,15 @@ public class MntBaseImpl implements MntBase{
 	 * @return
 	 */
 	public boolean comprAllTables(String firstLsk, String table, boolean isAllPeriods) {
-		log.info("===Version 1.4===");
+		log.info("===Version 1.7===");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);
 		curPeriod = Integer.valueOf(param.getPeriod());
+    	// Период -2 от текущего (минус два месяца, так как сжимаем только архивный и сравниваем его с доархивным)
+    	backPeriod = Integer.valueOf(Utl.addMonth(String.valueOf(curPeriod), -2));
+		log.trace("Текущий период={}", curPeriod);
+		log.trace("Период -1 от текущего={}", backPeriod);
 		try {
 			comprTable(table, firstLsk, true);
 		} catch (Exception e) {

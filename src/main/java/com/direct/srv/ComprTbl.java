@@ -6,6 +6,6 @@ import com.direct.webflow.Result;
 
 public interface ComprTbl {
 
-	public Future<Result> comprTableByLsk(String table, String lsk, Integer curPeriod, boolean isAllPeriods, boolean isByUsl);
+	public Future<Result> comprTableByLsk(String table, String lsk, Integer backPeriod, Integer curPeriod, boolean isAllPeriods, boolean isByUsl);
 
 }
