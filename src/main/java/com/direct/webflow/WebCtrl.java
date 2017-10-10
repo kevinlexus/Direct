@@ -47,16 +47,17 @@ public class WebCtrl {
 	@ResponseBody
 	public String scan(
 			@RequestParam(value = "firstLsk", defaultValue = "00000000", required = false) String firstLsk,
+			@RequestParam(value = "oneLsk", required = false) String oneLsk,
 			@RequestParam(value = "table", required = false) String table,
 			@RequestParam(value = "allPeriods", defaultValue = "0", required = false) Integer allPeriods) {
-		log.info("GOT /chrglsk with: firstLsk={}, table={}, allPeriods={}", firstLsk, table, allPeriods);
+		log.info("GOT /scan with: firstLsk={}, table={}, allPeriods={}", firstLsk, table, allPeriods);
 		boolean isAllPeriods = false;
 		if (allPeriods == 1) {
 			// анализировать все периоды
 			isAllPeriods = true;
 		}
 		try {
-			if (mntBase.comprAllTables(firstLsk, table, isAllPeriods)) {
+			if (mntBase.comprAllTables(firstLsk, oneLsk, table, isAllPeriods)) {
 				return "OK";
 			} else {
 				return "ERROR";
@@ -109,7 +110,7 @@ public class WebCtrl {
 	   ds.beginTrans();
  	   ex.runWork(35, id, sel);
 	   ds.commitTrans();
-	   System.out.println("/checkItms?id="+id);
+	   log.info("/checkItms?id="+id);
 	   
 	   return null;
     }   
@@ -145,7 +146,7 @@ public class WebCtrl {
        }
 	   
 	   ds.commitTrans();
-	   System.out.println("/editSprgenitm");
+	   log.info("/editSprgenitm");
 	   return null;
     }
 
@@ -159,9 +160,9 @@ public class WebCtrl {
    	  	   T1= new ThrMain();
            ThrMain.setStopped(false); // НЕ ПОНЯЛ, зачем здесь устанавливать false, если ЭТО новый объект и в нём stopped=false при инициализации... 
    	  	   T1.start();
-           System.out.println("Started thread!");
+           log.info("Started thread!");
     	} else {
-           System.out.println("Already started!");
+           log.info("Already started!");
     	   return "Already started!";
     	}
 		return "ok";
@@ -172,11 +173,11 @@ public class WebCtrl {
     String stopGen() {
     	if (T1 != null) {
 	        ThrMain.setStopped(true);
-            System.out.println("Trying to stop!");
+            log.info("Trying to stop!");
 
 	        return "Ended!";
     	} else {
-            System.out.println("Already ended!");
+            log.info("Already ended!");
     		return "Already ended!";
     	}
         

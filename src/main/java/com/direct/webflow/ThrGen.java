@@ -12,8 +12,11 @@ import org.hibernate.jdbc.Work;
 import com.dic.bill.model.scott.TempObj;
 import com.dic.bill.utils.DSess;
 
+import lombok.extern.slf4j.Slf4j;
+
 
 //класс формирования объектов (домов например)
+@Slf4j
 public class ThrGen extends Thread {
 	boolean stopped = false;
 	String name;
@@ -33,7 +36,7 @@ public class ThrGen extends Thread {
 				//вариант 1 - формирование начисления по дому
 				ds.sess.doWork(new Work() {
 		      	 public void execute(Connection connection) throws SQLException {
-  					    //System.out.println("ThrGen.doWork: call scott.c_charges.gen_charges!"+objId);
+  					    //log.info("ThrGen.doWork: call scott.c_charges.gen_charges!"+objId);
 		      		    CallableStatement call = connection.prepareCall("{ ? = call scott.c_charges.gen_charges(?, ?, ?, ?, ?, ?) }");
 		      		    call.registerOutParameter(1, Types.INTEGER);
 		      		    call.setString(2, null);
@@ -52,7 +55,7 @@ public class ThrGen extends Thread {
 				//вариант 2 - распределить ОДН во вводах, где нет ОДПУ
 				ds.sess.doWork(new Work() {
 		      	 public void execute(Connection connection) throws SQLException {
-					    //System.out.println("ThrGen.doWork: call scott.p_vvod.gen_dist_wo_vvod_usl!"+objId);
+					    //log.info("ThrGen.doWork: call scott.p_vvod.gen_dist_wo_vvod_usl!"+objId);
 		      		    CallableStatement call = connection.prepareCall("{ call scott.p_vvod.gen_dist_wo_vvod_usl(?) }");
 		      		    call.setInt(1, objId); //id ввода
 		      		    call.execute();
@@ -65,7 +68,7 @@ public class ThrGen extends Thread {
 				//вариант 3 - распределить ОДН во вводах, где есть ОДПУ
 				ds.sess.doWork(new Work() {
 		      	 public void execute(Connection connection) throws SQLException {
-					    //System.out.println("ThrGen.doWork: call scott.p_thread.gen_dist_odpu!"+objId);
+					    //log.info("ThrGen.doWork: call scott.p_thread.gen_dist_odpu!"+objId);
 		      		    CallableStatement call = connection.prepareCall("{ call scott.p_thread.gen_dist_odpu(?) }");
 		      		    call.setInt(1, objId); //id ввода
 		      		    call.execute();
@@ -78,7 +81,7 @@ public class ThrGen extends Thread {
 				// вариант 4 - начислить пеню по домам
 				ds.sess.doWork(new Work() {
 		      	 public void execute(Connection connection) throws SQLException {
-					    //System.out.println("ThrGen.doWork: call scott.c_cpenya.gen_charge_pay_pen_house!"+objId);
+					    //log.info("ThrGen.doWork: call scott.c_cpenya.gen_charge_pay_pen_house!"+objId);
 		      		    CallableStatement call = connection.prepareCall("{ call scott.c_cpenya.gen_charge_pay_pen_house(?, ?) }");
 		      		    call.setNull(1, Types.DATE);// дата, не заполняем, null
 		      		    call.setInt(2, objId); // id дома
@@ -89,7 +92,7 @@ public class ThrGen extends Thread {
 			}
 
 			default: {
-				System.out.println("ThrGen.doWork: не найдено вхождение case!");
+				log.info("ThrGen.doWork: не найдено вхождение case!");
 			}
 			
 			
@@ -98,21 +101,21 @@ public class ThrGen extends Thread {
 			Throwable cause = excp.getCause();
 			SrvThr.setErrChild(1); //признак ошибки в вызывающем классе (synchronize не нужен)
 			SrvThr.setErrTextChild(cause.getMessage());
-			System.out.println("Error while executing "+name+" thread, objId="+objId);
-			System.out.println("ThrGen.doWork: "+cause.getMessage());
+			log.info("Error while executing "+name+" thread, objId="+objId);
+			log.info("ThrGen.doWork: "+cause.getMessage());
 		} catch (HibernateException excp) {
 			Throwable cause = excp.getCause();
 			SrvThr.setErrChild(1); //признак ошибки в вызывающем классе (synchronize не нужен)
 			SrvThr.setErrTextChild(cause.getMessage());
-			System.out.println("Error while executing "+name+" thread, objId="+objId);
-			System.out.println("ThrGen.doWork: "+cause.getMessage());
+			log.info("Error while executing "+name+" thread, objId="+objId);
+			log.info("ThrGen.doWork: "+cause.getMessage());
 		} catch (Exception excp) {
 			//прочие ошибки
 			Throwable cause = excp.getCause();
 			SrvThr.setErrChild(1); //признак ошибки в вызывающем классе (synchronize не нужен)
 			SrvThr.setErrTextChild(cause.getMessage());
-			System.out.println("Error while executing "+name+" thread, objId="+objId);
-			System.out.println("ThrGen.doWork: "+cause.getMessage());
+			log.info("Error while executing "+name+" thread, objId="+objId);
+			log.info("ThrGen.doWork: "+cause.getMessage());
 		}
 	}
 		
@@ -123,7 +126,7 @@ public class ThrGen extends Thread {
 	 * @param var Вариант формирования
 	 */
 	ThrGen(String name, int var) {
-		System.out.println("Creating " + name);
+		log.info("Creating " + name);
 		ds=new DSess(true);
 		ex = new ExecProc(ds);
 		
@@ -137,7 +140,7 @@ public class ThrGen extends Thread {
 		stopped=false;
 		this.name=name;
 		this.var=var;
-		System.out.println("End of Creating " + name);
+		log.info("End of Creating " + name);
 	}
 
 	public void run() {
@@ -151,7 +154,7 @@ public class ThrGen extends Thread {
 						}
 					} else {
 						//формирование
-						System.out.println(this.name+" working with:"+tobj.getId());
+						log.info(this.name+" working with:"+tobj.getId());
 							// var - варианты формирования
 							ds.beginTrans();
 							GenObj(tobj.getId(), var);

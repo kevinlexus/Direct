@@ -1,8 +1,5 @@
 package com.direct.webflow;
 
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.UnknownHostException;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -14,6 +11,9 @@ import org.hibernate.jdbc.Work;
 
 import com.dic.bill.utils.DSess;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class ExecProc {
 
 	public int doWorkRet; 		  //Результат из doWork
@@ -234,8 +234,9 @@ public class ExecProc {
 					call.setString(1, "");
 					call.execute();
 					
-					// удалить корректировки по оплате
-					call = connection
+					// удалить корректировки по оплате -  не надо всё это. делается в методе scott.gen.gen_saldo() 
+					// ред. 09.10.2017
+					/*call = connection
 							.prepareCall("{ call scott.c_gen_pay.dist_pay_del_corr() }");
 					call.execute();
 					
@@ -243,7 +244,7 @@ public class ExecProc {
 					call = connection
 							.prepareCall("{ call scott.c_gen_pay.dist_pay_add_corr(?) }");
 					call.setInt(1, 1);
-					call.execute();
+					call.execute();*/
 					
 					doWorkRet = 0;
 				}
@@ -497,7 +498,7 @@ public class ExecProc {
 		
 		default: {
 			doWorkErrText="ThrMain.doWork: не найдено вхождение case!";
-			System.out.println("ThrMain.doWork: не найдено вхождение case!");
+			log.info("ThrMain.doWork: не найдено вхождение case!");
 			doWorkRet=-1;
 		}
 		}
@@ -506,19 +507,19 @@ public class ExecProc {
 		Throwable cause = excp.getCause();
 		doWorkRet=-1;//признак ошибки
 		doWorkErrText=cause.getMessage();
-		System.out.println("ThrMain.doWork: "+cause.getMessage());
-		System.out.println("Error while executing doWork with var= "+var);
+		log.info("ThrMain.doWork: "+cause.getMessage());
+		log.info("Error while executing doWork with var= "+var);
 	} catch (HibernateException excp) {
 		Throwable cause = excp.getCause();
 		doWorkRet=-1;//признак ошибки
 		if (cause!=null){
 			doWorkErrText=cause.getMessage();
-	        System.out.println("ThrMain.doWork: "+cause.getMessage());
-			System.out.println("Error while executing doWork with var= "+var);
+	        log.info("ThrMain.doWork: "+cause.getMessage());
+			log.info("Error while executing doWork with var= "+var);
 		} else {
 			doWorkErrText=excp.getMessage();
-	        System.out.println("Next ThrMain.doWork: "+excp.getMessage());
-			System.out.println("Next Error while executing doWork with var= "+var);
+	        log.info("Next ThrMain.doWork: "+excp.getMessage());
+			log.info("Next Error while executing doWork with var= "+var);
 			
 		}
 	} catch (Exception excp) {
@@ -526,8 +527,8 @@ public class ExecProc {
 		Throwable cause = excp.getCause();
 		doWorkRet=-1;//признак ошибки
 		doWorkErrText=cause.getMessage();
-		System.out.println("ThrMain.doWork: "+cause.getMessage());
-		System.out.println("Error while executing doWork with var= "+var);
+		log.info("ThrMain.doWork: "+cause.getMessage());
+		log.info("Error while executing doWork with var= "+var);
 	}
 	return doWorkRet;
 	

@@ -8,7 +8,12 @@ import com.dic.bill.dao.impl.TempObjDaoImpl;
 import com.dic.bill.model.scott.SprGenItm;
 import com.dic.bill.model.scott.TempObj;
 import com.dic.bill.utils.DSess;
+import com.direct.srv.MntBase;
+import com.direct.srv.impl.MntBaseImpl;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class ThrMain extends Thread {
 	SprGenItmDaoImpl sprgDao;
 	List<SprGenItm> sprg;
@@ -20,7 +25,7 @@ public class ThrMain extends Thread {
 
 	// конструктор
 	ThrMain() {
-		System.out.println("Creating ThrMain!");
+		log.info("Creating ThrMain!");
 		name="ThrMain";
 	}
 
@@ -37,7 +42,7 @@ public class ThrMain extends Thread {
 		// формировать
 		gen();
 
-		System.out.println("Thread ThrMain exiting.");
+		log.info("Thread ThrMain exiting.");
 		ds.closeSess();
 		setStopped(true);
 	}
@@ -49,7 +54,7 @@ public class ThrMain extends Thread {
 	private void closeGen(SprGenItm menuGenItg, int stateGen, int err, String ErrText) {
 		int ret = ex.runWork(2, 0, 0);// Снять блокировку после итогового формирования (можно снимать, даже если его не было)
 		if (ret==-1) {
-			System.out.println("ThrMain.closeGen: Ошибка во время разблокировки итогового формирования!");
+			log.info("ThrMain.closeGen: Ошибка во время разблокировки итогового формирования!");
 		}
 		
 		//начать транзакцию, если не начата
@@ -181,7 +186,7 @@ public class ThrMain extends Thread {
 				return; // выйти при ошибке
 			}
 			// выполнить проверки
-			System.out.println("ThrMain: Начало формир!");
+			log.info("ThrMain: Начало формир!");
 			menuGenItg.setState("Выполняется");
 			menuGenItg.setProc(0.1); //установить 10% выполнения
 			ds.commitTrans();
@@ -210,7 +215,7 @@ public class ThrMain extends Thread {
 				closeGen(menuGenItg, 2, 1, "ThrMain: "+ex.doWorkErrText);
 				return; // выйти при ошибке
 			}
-			System.out.println("ThrMain: Установлен признак закрытия базы!");
+			log.info("ThrMain: Установлен признак закрытия базы!");
 			ds.commitTrans();
 		}
 		//**********
@@ -299,7 +304,7 @@ public class ThrMain extends Thread {
 
 		//**********Начать формирование
 		for (SprGenItm itm : sprg) {
-				System.out.println("Generating menu item: " + itm.getCd());
+				log.info("Generating menu item: " + itm.getCd());
 				switch (itm.getCd()) {
 
 				case "GEN_ADVANCE": {
@@ -594,6 +599,40 @@ public class ThrMain extends Thread {
 					itm.setDt2(new Date());
 					ds.commitTrans();
 
+					break;
+				}		
+				
+				case "GEN_COMPRESS_ARCH": {
+					ds.beginTrans();
+					itm.setDt1(new Date());
+					ds.commitTrans();
+
+		            MntBase mntBase = WebApplication.applicationContext.getBean(MntBaseImpl.class);
+					if (!mntBase.comprAllTables("00000000", null, "anabor", false)) {
+						return; // выйти при ошибке
+					}
+					
+					ds.beginTrans();
+					itm.setProc(0.3D);
+					ds.commitTrans();
+					
+					if (!mntBase.comprAllTables("00000000", null, "acharge", false)) {
+						return; // выйти при ошибке
+					}
+
+					ds.beginTrans();
+					itm.setProc(0.5D);
+					ds.commitTrans();
+
+					if (!mntBase.comprAllTables("00000000", null, "achargeprep", false)) {
+						return; // выйти при ошибке
+					}
+
+					ds.beginTrans();
+					itm.setProc(1D);
+					itm.setDt2(new Date());
+					ds.commitTrans();
+					
 					break;
 				}				
 			}

@@ -12,7 +12,7 @@
   <logger name="org.hibernate.type" level="DEBUG" /> -->
   
   <logger name="org.hibernate.engine.loading.internal.CollectionLoadContext" level="ERROR"/>
-  <logger name="com.direct" level="INFO"/>
+  <logger name="com.direct" level="TRACE"/>
   <!--<logger name="org.ehcache" level="ERROR"/>
   <logger name="org.hibernate.stat" level="DEBUG"/>--> 
   

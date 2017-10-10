@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dic.bill.Compress;
 import com.dic.bill.dao.AchargeDAO;
+import com.dic.bill.dao.AchargePrepDAO;
 import com.dic.bill.dao.AnaborDAO;
 import com.dic.bill.model.scott.Acharge;
 import com.dic.bill.model.scott.Anabor;
@@ -53,6 +54,8 @@ public class ComprTblImpl implements ComprTbl {
 	private AnaborDAO anaborDao;
 	@Autowired
 	private AchargeDAO achargeDao;
+	@Autowired
+	private AchargePrepDAO achargePrepDao;
 
 	// Все элементы по лиц.счету по всем периодам
 	List<Compress> lst;
@@ -86,31 +89,41 @@ public class ComprTblImpl implements ComprTbl {
 		this.isByUsl = isByUsl;
     	Result res = new Result(0, lsk);
     	lst = new ArrayList<Compress>();
-    	// Список ключей
-    	Set<Integer> lstKey = new TreeSet<Integer>();
-    	// Минимальный, максимальный период
-    	Integer minPeriod;//, maxPeriod;
+    	// Список ключей-услуг
+    	Set<String> lstKey = new TreeSet<String>();
+    	// Минимальный период
+    	Integer minPeriod;
  	   	// Получить все элементы по лиц.счету
     	if (table.equals("anabor")) {
     		if (isAllPeriods) {
     			// получить все периоды
             	lst.addAll(anaborDao.getByLsk(lsk));
-        		log.trace("Л.с.:{} По всем периодам элементы получены!", lsk, backPeriod);
+        		log.trace("Л.с.:{} По всем периодам Anabor элементы получены!", lsk, backPeriod);
     		} else {
     			// начиная с периода -2
             	lst.addAll(anaborDao.getByLskPeriod(lsk, backPeriod));
-        		log.trace("Л.с.:{} По по периоду начиная с -2 элементы получены!", lsk, backPeriod);
+        		log.trace("Л.с.:{} По по периоду Anabor начиная с -2 элементы получены!", lsk, backPeriod);
     		}
     	} else if (table.equals("acharge")) {
         		if (isAllPeriods) {
         			// получить все периоды
                 	lst.addAll(achargeDao.getByLsk(lsk));
-            		log.trace("Л.с.:{} По всем периодам элементы получены!", lsk, backPeriod);
+            		log.trace("Л.с.:{} По всем периодам Acharge элементы получены!", lsk, backPeriod);
         		} else {
         			// начиная с периода -2
                 	lst.addAll(achargeDao.getByLskPeriod(lsk, backPeriod));
-            		log.trace("Л.с.:{} По по периоду начиная с -2 элементы получены!", lsk, backPeriod);
+            		log.trace("Л.с.:{} По по периоду Acharge начиная с -2 элементы получены!", lsk, backPeriod);
         		}
+    	} else if (table.equals("achargeprep")) {
+    		if (isAllPeriods) {
+    			// получить все периоды
+            	lst.addAll(achargePrepDao.getByLsk(lsk));
+        		log.trace("Л.с.:{} По всем периодам AchargePrep элементы получены!", lsk, backPeriod);
+    		} else {
+    			// начиная с периода -2
+            	lst.addAll(achargePrepDao.getByLskPeriod(lsk, backPeriod));
+        		log.trace("Л.с.:{} По по периоду AchargePrep начиная с -2 элементы получены!", lsk, backPeriod);
+    		}
     	} else {
     		// Ошибка - не тот класс таблицы
     		log.error("Л.с.:{} Ошибка! Не тот класс таблицы:{}", lsk, table);
@@ -119,7 +132,7 @@ public class ComprTblImpl implements ComprTbl {
     	}
     	
     	// Список всех услуг
-    	lstKey.addAll(lst.stream().map(t -> t.getKey()).distinct().collect(Collectors.toSet()));
+    	lstKey.addAll(lst.stream().map(t -> t.getUsl()).distinct().collect(Collectors.toSet()));
 		log.trace("Л.с.:{} список найденных ключей:", lsk);
 		lstKey.stream().forEach(t-> {
 			log.trace("Л.с.:{} ключ:{}", lsk, t);
@@ -127,12 +140,12 @@ public class ComprTblImpl implements ComprTbl {
 		
     	if (isByUsl) {
     		// Сжимать с использованием ключа
-    		for (Integer key :lstKey) {
+    		for (String key :lstKey) {
     			lastUsed = null;
     	    	// Получить все периоды, фильтр - по услуге
     	    	
-    			minPeriod = lst.stream().filter(d -> d.getKey().equals(key)).map(t -> t.getMgFrom()).min(Integer::compareTo).orElse(null);
-    			//maxPeriod = lst.stream().filter(d -> d.getKey().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
+    			minPeriod = lst.stream().filter(d -> d.getUsl().equals(key)).map(t -> t.getMgFrom()).min(Integer::compareTo).orElse(null);
+    			//maxPeriod = lst.stream().filter(d -> d.getUsl().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
     				//	.map(t -> t.getMgTo()).max(Integer::compareTo).orElse(null);
     			log.trace("Л.с.:{} мин.период:{}", lsk, minPeriod);
     			
@@ -140,7 +153,7 @@ public class ComprTblImpl implements ComprTbl {
     	    	// отсортированные
     			lstPeriodPrep = new HashMap<Integer, Integer>();
     			
-    			lst.stream().filter(t -> t.getKey().equals(key) && t.getMgFrom() < curPeriod).forEach(t-> {
+    			lst.stream().filter(t -> t.getUsl().equals(key) && t.getMgFrom() < curPeriod).forEach(t-> {
     				if (lstPeriodPrep.get(t.getMgFrom()) == null) {
     					lstPeriodPrep.put(t.getMgFrom(), t.getMgTo());
     				}
@@ -169,7 +182,7 @@ public class ComprTblImpl implements ComprTbl {
      * @param period - период массива 
      * @param key - код услуги
      */
-	private void checkPeriod(Integer period, Integer key) {
+	private void checkPeriod(Integer period, String key) {
 		log.trace("Л.с.:{}, key={} проверяемый.период:{}", this.lsk, key, period);
 		Integer lastUsedMg2 = lstPeriodPrep.get(lastUsed);
 		// Период -1 от проверяемого
@@ -209,9 +222,9 @@ public class ComprTblImpl implements ComprTbl {
 	 * @param period - период массива
      * @param key - код ключа
 	 */
-    private void delPeriod(Integer period, Integer key) {
+    private void delPeriod(Integer period, String key) {
     	List<Compress> lstDel = lst.stream()
-    			.filter(t -> key == null || t.getKey().equals(key))
+    			.filter(t -> key == null || t.getUsl().equals(key))
     			.filter(t -> t.getMgFrom().equals(period)).collect(Collectors.toList());
     	
 		for (Iterator<Compress> iterator = lstDel.iterator(); iterator.hasNext();) {
@@ -226,10 +239,10 @@ public class ComprTblImpl implements ComprTbl {
      * @param period2 - Период новый
      * @param key - код ключа
      */
-    private void replacePeriod(Integer period1, Integer period2, Integer key) {
+    private void replacePeriod(Integer period1, Integer period2, String key) {
     	// Найти массив по period1, и чтобы он еще не был расширен до period2
 		lst.stream()
-			.filter(t -> key == null || t.getKey().equals(key))
+			.filter(t -> key == null || t.getUsl().equals(key))
 		    .filter(t -> t.getMgFrom().equals(period1) && !t.getMgTo().equals(period2)).forEach(d -> {
 			d.setMgTo(period2);
 		});
@@ -242,17 +255,17 @@ public class ComprTblImpl implements ComprTbl {
      * @param key - код ключа
      * @return 
      */
-    private boolean comparePeriod(Integer period1, Integer period2, Integer key) {
+    private boolean comparePeriod(Integer period1, Integer period2, String key) {
     	List<Compress> filtLst1 = lst.stream()
-				.filter(t -> key == null || t.getKey().equals(key))
+				.filter(t -> key == null || t.getUsl().equals(key))
 				.filter(t -> t.getMgFrom().equals(period1)).collect(Collectors.toList());
 		List<Compress> filtLst2 = lst.stream()
-				.filter(t -> key == null || t.getKey().equals(key))
+				.filter(t -> key == null || t.getUsl().equals(key))
 				.filter(t -> t.getMgFrom().equals(period2)).collect(Collectors.toList());
 
 		if (filtLst1.size() != filtLst2.size()) {
 			// не равны по размеру
-			log.info("Не равны по размеру!");
+			log.trace("Не равны по размеру!");
 			return false;
 		}
 		// Сравнить своим компаратором
@@ -261,10 +274,10 @@ public class ComprTblImpl implements ComprTbl {
 		
 		// Получить коллекции hash и сравнить их между собой оставил пока 
 /*    	List<Integer> filtLst1 = lst.stream()
-				.filter(t -> key == null || t.getKey().equals(key))
+				.filter(t -> key == null || t.getUsl().equals(key))
 				.filter(t -> t.getMgFrom().equals(period1)).map(t-> t.getHash()).collect(Collectors.toList());
 		List<Integer> filtLst2 = lst.stream()
-				.filter(t -> key == null || t.getKey().equals(key))
+				.filter(t -> key == null || t.getUsl().equals(key))
 				.filter(t -> t.getMgFrom().equals(period2)).map(t-> t.getHash()).collect(Collectors.toList());
 */		
 	}

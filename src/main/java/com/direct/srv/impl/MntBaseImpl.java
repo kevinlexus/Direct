@@ -60,19 +60,19 @@ public class MntBaseImpl implements MntBase{
 	 * @throws Exception 
 	 * @param - tableClass - класс таблицы
 	 * @param - firstLsk - начать с лицевого
+	 * @param - oneLsk - только этот лицевой
 	 * @param - isByUsl - использовать ли поле "usl" для критерия сжатия (не подходит для всех таблиц, например archkart)
 	 */
-	private void comprTable(String table, String firstLsk, Boolean isByUsl) throws Exception {
+	private void comprTable(String table, String firstLsk, String oneLsk, Boolean isByUsl) throws Exception {
 		Integer startTime;
 		Integer endTime;
 		Integer totalTime;
-		// Кол-во потоков
-		int cntThread = 30;
+		// Кол-во потоков, начать от 10, иначе может быть Out of Memory Error, Java heap space, на слабых серверах
+		int cntThread = 10;
 		// Кол-во потоков, лучшее
 		boolean setBestCntThread = false;
 		int bestCntThread = 0;
 		Integer cnt; 
-		String lastLsk = null;
 		// каждую пачку исполнять по N раз
 		int batchCnt = 1;
 		// лучшее время исполнения, мс
@@ -83,9 +83,15 @@ public class MntBaseImpl implements MntBase{
 		log.info("Compress table:{},  threads count:{}", table, cntThread);
 		startTime = (int) System.currentTimeMillis();
 		
+		List<String> lstLsk = null;
 		// Получить список лс
-		List<String> lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
-				.collect(Collectors.toList());
+		if (oneLsk != null) {
+			lstLsk = new ArrayList<String>();
+			lstLsk.add(oneLsk);
+		} else {
+			lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
+					.collect(Collectors.toList());
+		}
 		//List<List<String>> batch = Lists.partition(lstLsk, cntThread);
 		Queue<String> qu = new LinkedList<>(lstLsk);
 			cnt = 1;
@@ -202,11 +208,12 @@ public class MntBaseImpl implements MntBase{
 	
 	/**
 	 * Сжать все необходимые таблицы
-	 * @param firstLsk - начать с лиц.сч.
+	 * @param - firstLsk - начать с лиц.сч.
+	 * @param - oneLsk - только этот лицевой
 	 * @return
 	 */
-	public boolean comprAllTables(String firstLsk, String table, boolean isAllPeriods) {
-		log.info("===Version 1.7===");
+	public boolean comprAllTables(String firstLsk, String oneLsk, String table, boolean isAllPeriods) {
+		log.info("===Version 2.0.0===");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);
@@ -214,9 +221,9 @@ public class MntBaseImpl implements MntBase{
     	// Период -2 от текущего (минус два месяца, так как сжимаем только архивный и сравниваем его с доархивным)
     	backPeriod = Integer.valueOf(Utl.addMonth(String.valueOf(curPeriod), -2));
 		log.trace("Текущий период={}", curPeriod);
-		log.trace("Период -1 от текущего={}", backPeriod);
+		log.trace("Период -2 от текущего={}", backPeriod);
 		try {
-			comprTable(table, firstLsk, true);
+			comprTable(table, firstLsk, oneLsk, true);
 		} catch (Exception e) {
 			// Ошибка при выполнении
 			e.printStackTrace();

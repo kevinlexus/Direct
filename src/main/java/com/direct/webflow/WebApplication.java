@@ -13,7 +13,7 @@ import javax.security.auth.message.config.AuthConfigFactory;
 @EnableCaching
 public class WebApplication {
 
-	private static ApplicationContext applicationContext = null;
+	public static ApplicationContext applicationContext = null;
 	
 	public static void main(String[] args) {
 		

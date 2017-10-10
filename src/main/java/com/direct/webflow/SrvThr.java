@@ -7,7 +7,9 @@ import com.dic.bill.model.scott.SprGenItm;
 import com.dic.bill.model.scott.TempObj;
 import com.dic.bill.utils.DSess;
 
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class SrvThr {
 
 	private static int errChild; // возникла ли ошибка в порождённых потоках? (0-нет, 1-да)
@@ -73,7 +75,7 @@ public class SrvThr {
 		}
 		
 		//выход
-		System.out.println("SrvThr - exiting");
+		log.info("SrvThr - exiting");
 	}
 
 	public static int getErrChild() {
