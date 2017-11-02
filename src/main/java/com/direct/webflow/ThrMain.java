@@ -192,16 +192,23 @@ public class ThrMain extends Thread {
 			ds.commitTrans();
 		} 
 		
-		//сбросить признак что сформировано итоговое (в конце, если всё успешно - поставить)
-		ds.beginTrans();
-		ret = ex.runWork(18, 0, 0);
-		if (ret==-1) {
-			//Ошибка во время вызова
-			closeGen(menuGenItg, 2, 1, "ThrMain: "+ex.doWorkErrText);
-			return; // выйти при ошибке
+		if (menuGenItg.getSel()) {
+			
 		}
-		ds.commitTrans();
-		//**********
+
+		// сбросить признак что сформировано итоговое (в конце, если всё успешно - поставить)
+		// если не переход месяца!
+		if (!menuMonthOver.getSel()) {
+			ds.beginTrans();
+			ret = ex.runWork(18, 0, 0);
+			if (ret==-1) {
+				//Ошибка во время вызова
+				closeGen(menuGenItg, 2, 1, "ThrMain: "+ex.doWorkErrText);
+				return; // выйти при ошибке
+			}
+			ds.commitTrans();
+			//**********
+		}
 
 		WebCtrl.stateGen="1"; //Выполняется формирование
 		WebCtrl.incProgress();
@@ -599,6 +606,14 @@ public class ThrMain extends Thread {
 					itm.setDt2(new Date());
 					ds.commitTrans();
 
+					//**********установить дату формирования, после перехода
+					ds.beginTrans();
+					 if (ex.runWork(16, 0, 0)!=0) {
+						closeGen(menuGenItg, 2, 1, "ThrMain: Некорректная дата формирования!");
+						return; // выйти при ошибке
+					 }
+					ds.commitTrans();
+
 					break;
 				}		
 				
@@ -651,13 +666,6 @@ public class ThrMain extends Thread {
 				return;
 			}
 		
-			//установить признак что сформировано итоговое, если дошли до сюда
-			ret = ex.runWork(18, 1, 0);
-			if (ret==-1) {
-				//Ошибка во время вызова
-				closeGen(menuGenItg, 2, 1, "ThrMain: "+ex.doWorkErrText);
-				return; // выйти при ошибке
-			}
 		}
 
 		if (menuGenItg.getSel()) {
@@ -666,6 +674,14 @@ public class ThrMain extends Thread {
 			menuGenItg.setProc(1.0); //установить 100% выполнения
 			menuGenItg.setDt2(new Date());
 			closeGen(menuGenItg, 0, 0, "Итоговое формирование выполнено!");
+
+			//установить признак что сформировано итоговое, если дошли до сюда
+			ret = ex.runWork(18, 1, 0);
+			if (ret==-1) {
+				//Ошибка во время вызова
+				closeGen(menuGenItg, 2, 1, "ThrMain: "+ex.doWorkErrText);
+				return; // выйти при ошибке
+			}
 		} else {
 			// Завершение частичного формирования
 			ds.beginTrans();

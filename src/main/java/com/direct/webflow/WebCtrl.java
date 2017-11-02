@@ -1,6 +1,7 @@
 package com.direct.webflow;
 
 import java.util.List;
+import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -39,6 +40,9 @@ public class WebCtrl {
    }
    
 
+   // текущий ключ допуска
+   private int curKey=0; 
+   
    /*
     * Сжать Anabor
     * @param firstLsk - начать с лиц.сч.
@@ -49,21 +53,39 @@ public class WebCtrl {
 			@RequestParam(value = "firstLsk", defaultValue = "00000000", required = false) String firstLsk,
 			@RequestParam(value = "oneLsk", required = false) String oneLsk,
 			@RequestParam(value = "table", required = false) String table,
-			@RequestParam(value = "allPeriods", defaultValue = "0", required = false) Integer allPeriods) {
-		log.info("GOT /scan with: firstLsk={}, table={}, allPeriods={}", firstLsk, table, allPeriods);
+			@RequestParam(value = "allPeriods", defaultValue = "0", required = false) Integer allPeriods,
+			@RequestParam(value = "key", defaultValue = "0", required = false) String key) {
+		log.info("GOT /scan with: firstLsk={}, oneLsk={}, table={}, allPeriods={}, key={}", firstLsk, oneLsk, table, allPeriods, key);
 		boolean isAllPeriods = false;
-		if (allPeriods == 1) {
-			// анализировать все периоды
-			isAllPeriods = true;
-		}
-		try {
-			if (mntBase.comprAllTables(firstLsk, oneLsk, table, isAllPeriods)) {
-				return "OK";
-			} else {
+		
+		if (curKey==0) {
+			// нет ключа
+			Random random = new Random();
+			int max = 100;
+			int min = 1;
+			int randomNum = random.nextInt(max) % (max - min + 1) + min;
+			curKey=randomNum;
+			return "Please enter the key="+curKey;
+		} else if (curKey==Integer.valueOf(key)) {
+			//ключ совпал
+			if (allPeriods == 1) {
+				// анализировать все периоды
+				isAllPeriods = true;
+			}
+			try {
+				if (mntBase.comprAllTables(firstLsk, oneLsk, table, isAllPeriods)) {
+					curKey=0;
+					return "OK";
+				} else {
+					curKey=0;
+					return "ERROR";
+				}
+			} catch (Exception e) {
+				curKey=0;
 				return "ERROR";
 			}
-		} catch (Exception e) {
-			return "ERROR";
+		} else {
+			return "Wrong key! Please enter the key="+curKey;
 		}
 	}
    

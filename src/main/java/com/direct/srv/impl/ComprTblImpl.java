@@ -126,13 +126,13 @@ public class ComprTblImpl implements ComprTbl {
     		}
     	} else {
     		// Ошибка - не тот класс таблицы
-    		log.error("Л.с.:{} Ошибка! Не тот класс таблицы:{}", lsk, table);
+    		log.error("Л.с.:{} Ошибка! Некорректный класс таблицы!:{}", lsk, table);
     		res.setErr(2);
     		return new AsyncResult<Result>(res);
     	}
     	
     	// Список всех услуг
-    	lstKey.addAll(lst.stream().map(t -> t.getUsl()).distinct().collect(Collectors.toSet()));
+    	lstKey.addAll(lst.stream().map(t -> t.getKey()).distinct().collect(Collectors.toSet()));
 		log.trace("Л.с.:{} список найденных ключей:", lsk);
 		lstKey.stream().forEach(t-> {
 			log.trace("Л.с.:{} ключ:{}", lsk, t);
@@ -144,7 +144,7 @@ public class ComprTblImpl implements ComprTbl {
     			lastUsed = null;
     	    	// Получить все периоды, фильтр - по услуге
     	    	
-    			minPeriod = lst.stream().filter(d -> d.getUsl().equals(key)).map(t -> t.getMgFrom()).min(Integer::compareTo).orElse(null);
+    			minPeriod = lst.stream().filter(d -> d.getKey().equals(key)).map(t -> t.getMgFrom()).min(Integer::compareTo).orElse(null);
     			//maxPeriod = lst.stream().filter(d -> d.getUsl().equals(key) && d.getMgFrom() < curPeriod) // не включая текущий период
     				//	.map(t -> t.getMgTo()).max(Integer::compareTo).orElse(null);
     			log.trace("Л.с.:{} мин.период:{}", lsk, minPeriod);
@@ -153,7 +153,7 @@ public class ComprTblImpl implements ComprTbl {
     	    	// отсортированные
     			lstPeriodPrep = new HashMap<Integer, Integer>();
     			
-    			lst.stream().filter(t -> t.getUsl().equals(key) && t.getMgFrom() < curPeriod).forEach(t-> {
+    			lst.stream().filter(t -> t.getKey().equals(key) && t.getMgFrom() < curPeriod).forEach(t-> {
     				if (lstPeriodPrep.get(t.getMgFrom()) == null) {
     					lstPeriodPrep.put(t.getMgFrom(), t.getMgTo());
     				}
@@ -224,7 +224,7 @@ public class ComprTblImpl implements ComprTbl {
 	 */
     private void delPeriod(Integer period, String key) {
     	List<Compress> lstDel = lst.stream()
-    			.filter(t -> key == null || t.getUsl().equals(key))
+    			.filter(t -> key == null || t.getKey().equals(key))
     			.filter(t -> t.getMgFrom().equals(period)).collect(Collectors.toList());
     	
 		for (Iterator<Compress> iterator = lstDel.iterator(); iterator.hasNext();) {
@@ -242,7 +242,7 @@ public class ComprTblImpl implements ComprTbl {
     private void replacePeriod(Integer period1, Integer period2, String key) {
     	// Найти массив по period1, и чтобы он еще не был расширен до period2
 		lst.stream()
-			.filter(t -> key == null || t.getUsl().equals(key))
+			.filter(t -> key == null || t.getKey().equals(key))
 		    .filter(t -> t.getMgFrom().equals(period1) && !t.getMgTo().equals(period2)).forEach(d -> {
 			d.setMgTo(period2);
 		});
@@ -257,10 +257,10 @@ public class ComprTblImpl implements ComprTbl {
      */
     private boolean comparePeriod(Integer period1, Integer period2, String key) {
     	List<Compress> filtLst1 = lst.stream()
-				.filter(t -> key == null || t.getUsl().equals(key))
+				.filter(t -> key == null || t.getKey().equals(key))
 				.filter(t -> t.getMgFrom().equals(period1)).collect(Collectors.toList());
 		List<Compress> filtLst2 = lst.stream()
-				.filter(t -> key == null || t.getUsl().equals(key))
+				.filter(t -> key == null || t.getKey().equals(key))
 				.filter(t -> t.getMgFrom().equals(period2)).collect(Collectors.toList());
 
 		if (filtLst1.size() != filtLst2.size()) {

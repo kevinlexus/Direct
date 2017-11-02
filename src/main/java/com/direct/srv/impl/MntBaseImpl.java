@@ -16,8 +16,12 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections4.list.TreeList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
 
+import com.dic.bill.dao.AchargeDAO;
+import com.dic.bill.dao.AchargePrepDAO;
+import com.dic.bill.dao.AnaborDAO;
 import com.dic.bill.dao.KartDAO;
 import com.dic.bill.dao.ParamDAO;
 import com.dic.bill.model.scott.Anabor;
@@ -41,7 +45,11 @@ import lombok.extern.slf4j.Slf4j;
 public class MntBaseImpl implements MntBase{
 	
 	@Autowired
-	private KartDAO kartDao;
+	private AnaborDAO anaborDao;
+	@Autowired
+	private AchargeDAO achargeDao;
+	@Autowired
+	private AchargePrepDAO achargePrepDao;
 	@Autowired
 	private ParamDAO paramDao;
 	@Autowired
@@ -89,8 +97,21 @@ public class MntBaseImpl implements MntBase{
 			lstLsk = new ArrayList<String>();
 			lstLsk.add(oneLsk);
 		} else {
-			lstLsk = kartDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
-					.collect(Collectors.toList());
+			
+	    	if (table.equals("anabor")) {
+				lstLsk = anaborDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
+						.collect(Collectors.toList());
+	    	} else if (table.equals("acharge")) {
+				lstLsk = achargeDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
+						.collect(Collectors.toList());
+	    	} else if (table.equals("achargeprep")) {
+				lstLsk = achargePrepDao.getAfterLsk(firstLsk).stream().map(t -> t.getLsk())
+						.collect(Collectors.toList());
+	    	} else {
+	    		log.error("Л.с.:{} Ошибка! Некорректный класс таблицы:{}", table);
+	    		throw new WrongTableException("Некорректный класс таблицы!");
+	    	}
+			
 		}
 		//List<List<String>> batch = Lists.partition(lstLsk, cntThread);
 		Queue<String> qu = new LinkedList<>(lstLsk);
@@ -213,7 +234,7 @@ public class MntBaseImpl implements MntBase{
 	 * @return
 	 */
 	public boolean comprAllTables(String firstLsk, String oneLsk, String table, boolean isAllPeriods) {
-		log.info("===Version 2.0.0===");
+		log.info("===Version 2.0.1===");
 		this.isAllPeriods = isAllPeriods;
 		// Получить параметры
 		param = paramDao.findAll().stream().findFirst().orElse(null);
