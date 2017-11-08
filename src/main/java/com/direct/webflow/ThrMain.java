@@ -199,6 +199,7 @@ public class ThrMain extends Thread {
 		// сбросить признак что сформировано итоговое (в конце, если всё успешно - поставить)
 		// если не переход месяца!
 		if (!menuMonthOver.getSel()) {
+			log.info("ThrMain: Сброшен признак итогового формирования!");
 			ds.beginTrans();
 			ret = ex.runWork(18, 0, 0);
 			if (ret==-1) {
@@ -208,6 +209,8 @@ public class ThrMain extends Thread {
 			}
 			ds.commitTrans();
 			//**********
+		} else {
+			log.info("ThrMain: Выполняется переход месяца!");
 		}
 
 		WebCtrl.stateGen="1"; //Выполняется формирование
