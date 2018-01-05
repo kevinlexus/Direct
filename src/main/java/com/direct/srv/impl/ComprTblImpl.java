@@ -86,13 +86,19 @@ public class ComprTblImpl implements ComprTbl {
 	public Future<Result> comprTableByLsk(String table, String lsk, Integer backPeriod, Integer curPeriod, boolean isAllPeriods, boolean isByUsl) {
 		log.trace("Л.с.:{} Начало сжатия!", lsk);
 		this.lsk = lsk;
+		log.trace("1.1");
 		this.isByUsl = isByUsl;
+		log.trace("1.2");
     	Result res = new Result(0, lsk);
-    	lst = new ArrayList<Compress>();
+		log.trace("1.3");
+    	lst = new ArrayList<Compress>(1000);
+		log.trace("1.4");
     	// Список ключей-услуг
     	Set<String> lstKey = new TreeSet<String>();
+		log.trace("1.5");
     	// Минимальный период
     	Integer minPeriod;
+		log.trace("1.6");
  	   	// Получить все элементы по лиц.счету
     	if (table.equals("anabor")) {
     		if (isAllPeriods) {
