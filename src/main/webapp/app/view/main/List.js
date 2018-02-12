@@ -78,7 +78,8 @@ Ext.define('TestApp.view.main.List', {
         },
 
         { text: 'Начало', dataIndex: 'dt1',
-            formatter: 'date("H:i:s")',
+            minWidth: 150,
+            formatter: 'date("d.m.y H:i:s")',
             editor : {
                 readOnly:true, //только для чтения
                 allowBlank: false
@@ -86,7 +87,8 @@ Ext.define('TestApp.view.main.List', {
         }
         ,
         { text: 'Окончание', dataIndex: 'dt2',
-            formatter: 'date("H:i:s")',
+            minWidth: 150,
+            formatter: 'date("d.m.y H:i:s")',
             editor: {
                 readOnly:true, //только для чтения
                 allowBlank: false
